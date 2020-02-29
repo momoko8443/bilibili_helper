@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili Helper
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  try to take over the world!
 // @author       You
 // @match        https://www.bilibili.com/video/av*
@@ -13,6 +13,7 @@
 (function() {
     'use strict';
     // Your code here...
+    // connect 47.104.78.73
     var helpItems = [];
     var current_user = null;
     var current_avcode = window.location.href.split('/video/')[1].split('/')[0];
@@ -74,14 +75,13 @@
         });
     }
     function login(username,password){
-        var myData = new FormData();
-        myData.append("username", username);
-        myData.append("password", password);
         GM_xmlhttpRequest({
             method: "POST",
             url: serviceURL + "/token",
-            data: myData,
-            onload: function(result){
+            headers:{'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+            data: "username="+username+"&password="+password,
+            onload: function(response){
+                var result = JSON.parse(response.responseText);
                 var token = result.access_token;
                 saveJwt(token);
                 window.location.reload();
@@ -93,13 +93,11 @@
         })
     }
     function registry(username,password){
-        var myData = new FormData();
-        myData.append("username", username);
-        myData.append("password", password);
         GM_xmlhttpRequest({
             method: "POST",
             url: serviceURL + "/users",
-            data: myData,
+            headers:{'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+            data: "username="+username+"&password="+password,
             onload: function(response){
                 var result = JSON.parse(response.responseText);
                 var token = result.access_token;
@@ -151,14 +149,15 @@
                 isRequester = true;
             }
             $('#hb_table').append('<tr id="'+ item.id +'"><tr>');
-            $('#' + item.id).append('<td><a href="https://www.bilibili.com/video/"' + item.avcode +'>'+ item.avcode+'</a></td>');
+            $('#' + item.id).append('<td><a href="https://www.bilibili.com/video/' + item.avcode +'">'+ item.avcode+'</a></td>');
             $('#' + item.id).append('<td><span>'+ item.score+'</span></td>');
             if(isRequester){
                 $('#' + item.id).append('<td><span>'+ item.requester+' (你)</span></td>');
             }else{
                 $('#' + item.id).append('<td><span>'+ item.requester+'</span></td>');
             }
-            $('#' + item.id).append('<td><span>'+ new Date(item.create_time).toLocaleTimeString()+'</span></td>');
+            var publish_time = new Date(item.create_time).toLocaleString();
+            $('#' + item.id).append('<td><span>'+ publish_time +'</span></td>');
             if(item.isHelped){
                 $('#' + item.id).append('<td><span>已助力</span></td>');
             }
@@ -166,7 +165,7 @@
                 $('#' + item.id).append('<td><button class="bh_btn hb_detail_btn" data-avcode="'+item.avcode+'">看详情</button></td>');
             }
             else{
-                $('#' + item.id).append('<td><button class="bh_btn">去助力</button></td>');
+                $('#' + item.id).append('<td><a href="https://www.bilibili.com/video/' + item.avcode +'"><button class="bh_btn">去助力</button></a></td>');
             }
         });
         $('#bh_box').append('<hr>');
@@ -199,7 +198,10 @@
             }
         }
         if(!isPublished){
-            $('#bh_box').append('<button class="bh_btn">发布</button>');
+            $('#bh_box').append('<button id="publishBtn" class="bh_btn">发布</button>');
+            $('#publishBtn').click(function(){
+                publishHelp();
+            });
         }else{
             $('#bh_box').append('<span>   已发布</span>');
         }
@@ -226,8 +228,13 @@
     }
     function generateUserProfileView(user){
         $('#bh_box').append('<h3>欢迎！ '+ user.username +'</h3>');
-        $('#bh_box').append('<span>您目前拥有点数:'+ user.coin +'</span>');
+        $('#bh_box').append('<span>您目前拥有点数:'+ user.coin +'  </span>');
+        $('#bh_box').append('<button id="logoutBtn" class="bh_btn">    退出</button>');
         $('#bh_box').append('<hr>');
+        $('#logoutBtn').click(function(){
+            window.localStorage.removeItem('jwt_bilibili_helper');
+            window.location.reload();
+        });
     }
     function watching(){
         for(var i=0;i<helpItems.length;i++){
@@ -263,19 +270,36 @@
         },10000);
     }
     function recordHelp(score){
-        var myData = new FormData();
-        myData.append("score", score);
         GM_xmlhttpRequest({
             method: "PUT",
             url: serviceURL+ "/api/protected/helps/" + current_avcode + "/helpers",
             headers: {
-                Accept: "application/json; charset=utf-8",
-                Authorization: "Bearer " + getJwt()
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Accept': "application/json; charset=utf-8",
+                'Authorization': "Bearer " + getJwt()
             },
-            data: myData,
+            data: "score="+score,
             success: function(result){
                 window.clearInterval(timer);
                 alert('助力成功!');
+                window.location.reload();
+            },
+            error: function(req, status, error){
+                alert(error);
+            }
+        })
+    }
+    function publishHelp(){
+        GM_xmlhttpRequest({
+            method: "POST",
+            url: serviceURL + "/api/protected/helps",
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Authorization': "Bearer " + getJwt()
+            },
+            data: "avcode="+current_avcode,
+            success: function(result){
+                alert('发布成功!');
                 window.location.reload();
             },
             error: function(req, status, error){
