@@ -78,7 +78,7 @@
         myData.append("username", username);
         myData.append("password", password);
         GM_xmlhttpRequest({
-            type: "POST",
+            method: "POST",
             url: serviceURL + "/token",
             data: myData,
             onload: function(result){
@@ -97,7 +97,7 @@
         myData.append("username", username);
         myData.append("password", password);
         GM_xmlhttpRequest({
-            type: "POST",
+            method: "POST",
             url: serviceURL + "/users",
             data: myData,
             onload: function(response){
